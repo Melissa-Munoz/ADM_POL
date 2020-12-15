@@ -29,7 +29,8 @@ B = np.abs(inc-beta)
 #Extra paramaters
 #-------------------------------------------------------------------------------
 #Smoothing length, delta
-#Vertical offset in differentlia magnitde, dm0 (constant)
+#Interstellar polarisation, QIS and UIS
+#Referance angle, thetaIS
 delta = 0.1 
 QIS = 0.0
 UIS = 0.0
