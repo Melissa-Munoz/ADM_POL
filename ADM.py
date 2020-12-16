@@ -18,7 +18,7 @@ from scipy.optimize import newton
 from scipy import interpolate
 from scipy.ndimage.interpolation import rotate
 from scipy.interpolate import interp1d
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import time 
 from scipy.integrate import simps
 
@@ -37,7 +37,7 @@ me = 9.1093897*10**(-28)
 mp = 1.6726*10**(-24)
 mH = 1.6733*10**(-24)
 e = 4.8032068*10**(-10)
-alphae = (1.+0.7)/2.#0.5
+alphae = (1.+0.7)/2.
 sigmat = 6.6524*10**(-25)
 sigma0=sigmat*3./(16.*np.pi)
 Msol = 1.99*10**(33)
@@ -50,14 +50,15 @@ Lsol = 3.9*10**(33)
 # Line-of-sight angle ----------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-#With degenerancy between inclination and obliquity
 def csalpha(phi, beta, inc):
+	#Note the degenerancy between the inclination and obliquity
 	return np.sin(beta)*np.cos(phi)*np.sin(inc)+np.cos(beta)*np.cos(inc)
 
-#To avoid the degenrancy, the Independant paramters A and B can be used, where
-#A = inc + beta,
-#B = |inc - beta|
+
 def csalpha2(phi, A, B):
+	#Degenrancy avoided by reexpressong the above equation with 
+	#A = inc + beta,
+	#B = |inc - beta|
 	return 0.5*(np.cos(B)*(1.+np.cos(phi)) + np.cos(A)*(1.-np.cos(phi)) )
 
 
@@ -76,7 +77,7 @@ def vw(r,vinf):
 	return vinf*(1.-1./r)
 
 def rhow(r,mu):
-	return 2.*np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/((r- 1.)*(4.*r - 3. + 3.*mu**2))*(1./r)**(3./2.)
+	return np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/((r- 1.)*(4.*r - 3. + 3.*mu**2))*(1./r)**(3./2.)
 
 
 # Hot post-shock 
@@ -118,7 +119,7 @@ def vc(r,mu,ve):
 	return np.abs(mu)*np.sqrt(1./r)*ve
 
 def rhoc(r,mu,delta):
-	return 2.*np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/(np.sqrt(mu**2+delta**2/r**2)*(4.*r - 3. + 3.*mu**2))*(1./r)**(2.)
+	return np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/(np.sqrt(mu**2+delta**2/r**2)*(4.*r - 3. + 3.*mu**2))*(1./r)**(2.)
 
 def f(mus,mustar,chiinf):
 	rm = 1./(1.-mustar**2)
@@ -179,7 +180,7 @@ def admCAL(Nx, Ny, Nz, RA, Rc, Teff, Tinf, chiinf, delta ):
 				r=np.sqrt(p**2+Z[k]**2)
 				mu=Z[k]/r
 				rRA=(1.-mu**2)/(1-mustar_RA**2)
-				if r > 1.01:
+				if r > 1.05:
 					mustar=np.sqrt(1.-(1.-mu**2)/r)
 					rm = 1./(1.-mustar**2)
 					mus=fs(mustar)
@@ -199,7 +200,7 @@ def admCAL(Nx, Ny, Nz, RA, Rc, Teff, Tinf, chiinf, delta ):
 						Rhoc[k,i,j]=rhoc(r,mu,delta)
 						#Vc[k,i,j]=wc(r,mu)
 						#tc[k,i,j]=Teff
-						if r > rs and rs > 1.01 :
+						if r > rs and rs > 1.05 :
 							Rhoh[k,i,j]=rhoh(r,rs,mu,mus,Tinf,Teff)
 							#Vh[k,i,j]=wh(r,rs,mu,mus,Tinf,Teff)
 							#th[k,i,j]=Th(rs,mu,mus,Tinf,Teff)
@@ -213,7 +214,7 @@ def admCAL(Nx, Ny, Nz, RA, Rc, Teff, Tinf, chiinf, delta ):
 	Rhoc=np.concatenate([Rhoc[:,:,::-1],Rhoc],axis=2)
 	Rhow=np.concatenate([Rhow[::-1,:,:],Rhow],axis=0)
 	Rhow=np.concatenate([Rhow[:,::-1,:],Rhow],axis=1)
-	Rhow=np.concatenate([Rhow[:,:,::-1],Rhow],axis=2)	
+	Rhow=np.concatenate([Rhow[:,:,::-1],Rhow],axis=2)
 	
 	return [Rhow, Rhoh, Rhoc]		
 
@@ -245,7 +246,7 @@ def POLp(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, 
 	rhowstar = mdot/(4.*np.pi*rstar**2*vinf)
 	rhocstar = rhowstar*vinf/ve
 
-	#Some scalling relations. see Owocki 2016
+	#Some scalling relations (see Owocki 2016)
 	chiinf = 0.034*(vinf/10.**8)**4*(rstar/10**12)/(Mdot/10**(-6))
 	Tinf = 14*10**6*(vinf/10.**8)**2
 
@@ -402,7 +403,7 @@ def POL(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, Q
 	U=np.zeros(PH) #Stokes U
 	for ph in range(PH):
 
-		#Trick for removing occulted regions (probably not the most efficient way )
+		#Trick for removing occulted regions (probably not the most efficient way)
 		RHO=rhoh+rhoc+rhow	
 		RHO_rot = np.zeros([NNz,NNx,NNy])
 		alpha=np.arccos(csalpha(phi[ph]*2.*np.pi,np.radians(inc),np.radians(beta)))
