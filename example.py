@@ -52,7 +52,7 @@ out = ADM.POL(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bstar,
 
 #Plotting phased Stokes Q and U curves
 #-------------------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(9,6),sharey=True)
+fig, ax = plt.subplots(2,figsize=(9,6),sharey=True)
 ax[0].plot(phi, outp[0],'k')
 ax[0].plot(phi+1, outp[0],'k')
 ax[0].plot(phi-1, outp[0],'k')
@@ -62,6 +62,8 @@ ax[1].plot(phi-1, outp[1],'k')
 ax[0].set_ylabel('Q [%]',fontsize=14)
 ax[1].set_ylabel('U [%]',fontsize=14)
 ax[1].set_xlabel('Rotational phase',fontsize=14)
+ax[0].set_xlim([-0.5,1.5])
+ax[1].set_xlim([-0.5,1.5])
 plt.show()
 
 plt.figure(figsize=(6,6))
