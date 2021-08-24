@@ -18,10 +18,10 @@ from scipy.optimize import newton
 from scipy import interpolate
 from scipy.ndimage.interpolation import rotate
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import time 
 from scipy.integrate import simps
-
+from scipy.integrate import trapz
 
 #-------------------------------------------------------------------------------
 # Some constants ---------------------------------------------------------------
@@ -77,7 +77,7 @@ def vw(r,vinf):
 	return vinf*(1.-1./r)
 
 def rhow(r,mu):
-	return np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/((r- 1.)*(4.*r - 3. + 3.*mu**2))*(1./r)**(3./2.)
+	return 2.*np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/((r- 1.)*(4.*r - 3. + 3.*mu**2))*(1./r)**(3./2.)
 
 
 # Hot post-shock 
@@ -119,7 +119,7 @@ def vc(r,mu,ve):
 	return np.abs(mu)*np.sqrt(1./r)*ve
 
 def rhoc(r,mu,delta):
-	return np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/(np.sqrt(mu**2+delta**2/r**2)*(4.*r - 3. + 3.*mu**2))*(1./r)**(2.)
+	return 2.*np.sqrt(r - 1. + mu**2)*np.sqrt(1.+3.*mu**2)/(np.sqrt(mu**2+delta**2/r**2)*(4.*r - 3. + 3.*mu**2))*(1./r)**(2.)
 
 def f(mus,mustar,chiinf):
 	rm = 1./(1.-mustar**2)
@@ -180,7 +180,7 @@ def admCAL(Nx, Ny, Nz, RA, Rc, Teff, Tinf, chiinf, delta ):
 				r=np.sqrt(p**2+Z[k]**2)
 				mu=Z[k]/r
 				rRA=(1.-mu**2)/(1-mustar_RA**2)
-				if r > 1.05:
+				if r > 1.05	:
 					mustar=np.sqrt(1.-(1.-mu**2)/r)
 					rm = 1./(1.-mustar**2)
 					mus=fs(mustar)
@@ -266,7 +266,7 @@ def POLp(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, 
 	rhow=Rhow*rhowstar
 
 	#Electron density
-	RHO=rhoh+rhoc+rhow	
+	RHO=rhoh+rhoc+rhow
 	ne=RHO*alphae/mp
 
 	#Defining spatial grids
@@ -298,35 +298,17 @@ def POLp(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, 
 	MU_grid[ R_grid > Rc ] = 0.
 
 	#Computation of integral moments
-	tau0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-	taugamma0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*MU_grid**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
+	tau0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+	taugamma0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*MU_grid**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
 
 	#Calculation of Stokes Q and U curves
-	amp = (tau0-3.*taugamma0)*100.
-	QU = QUp_(phi, amp, inc, beta, thetaIS, QIS, UIS)
-
+	amp = (tau0-3.*taugamma0)
+	QU = qup_(phi, amp, inc, beta, thetaIS, QIS, UIS)
+	#print 'amp', amp
 	return QU
 
 
-def QUp_(phi, amp, inc, beta, thetaIS, QIS, UIS):
-	inc = np.radians(inc)
-	beta = np.radians(beta)
-	lda = phi*2.*np.pi
 
-	q0= amp*np.sin(inc)**2*(3.*np.cos(beta)**2-1.)*np.cos(thetaIS) + QIS #QIS*np.cos(thetaIS) - UIS*np.sin(thetaIS) +
-	q1= 2.*amp*np.sin(inc)*np.sin(2.*beta)*np.sin(thetaIS) 
-	q2= amp*np.sin(2.*inc)*np.sin(2.*beta)*np.cos(thetaIS)
-	q3=-amp*(1.+np.cos(inc)**2)*np.sin(beta)**2*np.cos(thetaIS)
-	q4= 2.*amp*np.cos(inc)*np.sin(beta)**2*np.sin(thetaIS)
-	Q = q0 + q1*np.cos(lda) + q2*np.sin(lda) + q3*np.cos(2.*lda) +  q4*np.sin(2.*lda)
-
-	u0= amp*np.sin(inc)**2*(3.*np.cos(beta)**2-1)*np.sin(thetaIS) + UIS #QIS*np.sin(thetaIS) + UIS*np.cos(thetaIS) 
-	u1=-2.*amp*np.sin(inc)*np.sin(2.*beta)*np.cos(thetaIS) 
-	u2= amp*np.sin(2.*inc)*np.sin(2.*beta)*np.sin(thetaIS)
-	u3=-amp*(1.+np.cos(inc)**2)*np.sin(beta)**2*np.sin(thetaIS)
-	u4=-2.*amp*np.cos(inc)*np.sin(beta)**2*np.cos(thetaIS)
-	U = u0 + u1*np.cos(lda) + u2*np.sin(lda) + u3*np.cos(2.*lda) +  u4*np.sin(2.*lda)
-	return [Q,U]
 
 
 #Finite light source correction
@@ -371,6 +353,10 @@ def POL(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, Q
 	rhoc=Rhoc*rhocstar
 	rhow=Rhow*rhowstar
 
+	#Electron density
+	RHO=rhoh+rhoc+rhow
+	ne=RHO*alphae/mp
+
 	#Defining spatial grids
 	XX=np.linspace(-Rc,Rc,NNx)
 	YY=np.linspace(-Rc,Rc,NNy)
@@ -390,96 +376,134 @@ def POL(phi, inc, beta, Nx, Ny, Nz, Teff, Mstar, Rstar, Vinf, Mdot, Bd, delta, Q
 	NU_grid = np.sqrt(1. - MU_grid**2)      #sin(theta)
 	CSPHI_grid = Z_grid/P_grid
 	SNPHI_grid = Y_grid/P_grid
-	CS2PHI_grid = CSPHI_grid**2 - SNPHI_grid**2
-	SN2PHI_grid = 2.*SNPHI_grid*CSPHI_grid
+	CS2PHI_grid = (CSPHI_grid**2 - SNPHI_grid**2)
+	SN2PHI_grid = (2.*SNPHI_grid*CSPHI_grid)
 
-	#Depolarisation factor (see Fox 1991)
-	#D=np.ones([NNz,NNx,NNy])  #For a point light source
-	D=np.sqrt(1.-1./R_grid**2) #For a finite star
+	#Depolarisation factor without limb darkening (see Cassinelli 1987)
+	D=np.sqrt(1.-1./R_grid**2) 
+
+	#Depolarisation factor with limb darkening (see Brown 1989)	
+	#u = 0.3
+	#D=np.sqrt(1.-1./R_grid**2) 
+	#D1 = 1./4.*(D**2 - 1.)*( 3.*u*D**2 - 4.*u*D + u + 4.*D)
+	#D2 = 2/6.*( u*(2.*D + 1.)*(D - 1.)**2 + 3.*D**2 - 3. )
+	#D = D1/D2
+
+	
+	#Removing data inside star and outside closure radius
+	RHO[ R_grid < 1.0 ] = 0. 
+	RHO[ R_grid > Rc ] = 0.
+	MU_grid[ R_grid < 1.0 ] = 0.
+	MU_grid[ R_grid > Rc ] = 0. 
+	NU_grid[ R_grid < 1.0 ] = 0.
+	NU_grid[ R_grid > Rc ] = 0. 
+	D[ R_grid < 1.0 ] = 0.
+	D[ R_grid > Rc ] = 0.
 
 
 	#Variable setup
-	Q=np.zeros(PH) #Stokes U
-	U=np.zeros(PH) #Stokes U
+	Q = np.zeros(PH) #Stokes U
+	U = np.zeros(PH) #Stokes U
 	for ph in range(PH):
 
 		#Trick for removing occulted regions (probably not the most efficient way)
 		RHO=rhoh+rhoc+rhow	
 		RHO_rot = np.zeros([NNz,NNx,NNy])
-		alpha=np.arccos(csalpha(phi[ph]*2.*np.pi,np.radians(inc),np.radians(beta)))
+		
+		for k in range(0,NNz):
+			RHO_rot[:,k,:] = rotate(RHO[:,k,:],-beta,mode='nearest', reshape=False)
+
+		for k in range(0,NNz):
+			RHO_rot[k,:,:] = rotate(RHO_rot[k,:,:],np.degrees(-phi[ph]*2.*np.pi),mode='nearest', reshape=False)
+
 		for k in range(0,NNx):
-			RHO_rot[:,k,:] = rotate(RHO[:,k,:],np.degrees(alpha),reshape=False)
+			RHO_rot[:,k,:]  = rotate(RHO_rot[:,k,:],inc,mode='nearest', reshape=False)
+		
 		RHO_rot[ R_grid<1.0 ] = 0.
-		RHO_rot[ (np.sqrt(Z_grid**2+Y_grid**2)<1) & (X_grid<0) ] = 0 
+		RHO_rot[ R_grid>Rc ] = 0.
+		RHO_rot[ (np.sqrt(Z_grid**2+Y_grid**2)<1.0) & (X_grid<0) ] = 0 
+		
+		for k in range(0,NNz):
+			RHO[:,k,:] = rotate(RHO_rot[:,k,:],-inc,mode='nearest', reshape=False)
+
+		for k in range(0,NNz):
+			RHO[k,:,:] = rotate(RHO[k,:,:],np.degrees(phi[ph]*2.*np.pi),mode='nearest', reshape=False)
+
 		for k in range(0,NNx):
-			RHO[:,k,:] = rotate(RHO_rot[:,k,:],np.degrees(-alpha),reshape=False)
-			
-		#Removing data inside star and outside closure radius
-		RHO[ R_grid < 1.0 ] = 0. 
-		RHO[ R_grid > Rc ] = 0.
-		MU_grid[ R_grid < 1.0 ] = 0.
-		MU_grid[ R_grid > Rc ] = 0. 
-		NU_grid[ R_grid < 1.0 ] = 0.
-		NU_grid[ R_grid > Rc ] = 0. 
-		D[ R_grid < 1.0 ] = 0.
-		D[ R_grid > Rc ] = 0.
+			RHO[:,k,:]  = rotate(RHO[:,k,:],beta,mode='nearest', reshape=False)
+		
 
 		#Electron density
 		ne=RHO*alphae/mp
 
-		#Computation of integral moments
-		tau0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-		taugamma0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*MU_grid**2,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-		taugamma1 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*2*MU_grid*NU_grid*CSPHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-		taugamma2 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*2*MU_grid*NU_grid*SNPHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-		taugamma3 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*NU_grid**2*CS2PHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
-		taugamma4 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*NU_grid**2*SN2PHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)
+		#Computation of integral moments 
+		tau0      = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2                             ,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+		taugamma0 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*MU_grid**2                  ,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+		taugamma1 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*2*MU_grid*NU_grid*CSPHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+		taugamma2 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*2*MU_grid*NU_grid*SNPHI_grid,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+		taugamma3 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*NU_grid**2*CS2PHI_grid      ,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100.
+		taugamma4 = 0.5*sigma0*simps(simps(simps(D*ne/(R_grid*Rstar*Rsol)**2*NU_grid**2*SN2PHI_grid      ,XX*Rstar*Rsol),YY*Rstar*Rsol),ZZ*Rstar*Rsol)*100. 	
+		amp = (tau0-3.*taugamma0)
 
-		#Calculation of Stokes Q and U curves
-		amp = (tau0-3.*taugamma0)*100.
-		taugamma1 = taugamma1*100.
-		taugamma2 = taugamma2*100.
-		taugamma3 = taugamma3*100.
-		taugamma4 = taugamma4*100.
-		QU = QU_(phi[ph], amp, taugamma1, taugamma2, taugamma3, taugamma4, inc, beta, thetaIS, QIS, UIS)
-		Q[ph] = QU[0] 
-		U[ph] = QU[1]
+		#Calculation of Stokes Q and U curves with occulted region removed
+		QU1 = qup_(phi[ph], amp, inc, beta, thetaIS, QIS, UIS)
+		QU2 = qu_(phi[ph], amp, taugamma1, taugamma2, taugamma3, taugamma4, inc, beta, thetaIS, QIS, UIS)
+		Q[ph] = QU2[0] 
+		U[ph] = QU2[1]
+
 
 	return [Q,U]
 
 
-def QU_(ph,amp,taugamma1,taugamma2,taugamma3,taugamma4,inc,beta,thetaIS,QIS,UIS):
+
+
+
+def qup_(phi, amp, inc, beta, thetaIS, QIS, UIS):
 	inc = np.radians(inc)
 	beta = np.radians(beta)
-	lda = 2.*np.pi*ph
+	lda = phi*2.*np.pi
 
-	V = amp
-	W = taugamma1
-	X = taugamma2
-	Y = taugamma3
-	Z = taugamma4
+	q0= 0.5*amp*np.sin(inc)**2*(3.*np.cos(beta)**2-1.) #+ QIS #QIS*np.cos(thetaIS) - UIS*np.sin(thetaIS) +
+	q1=-0.5*amp*np.sin(2.*inc)*np.sin(2.*beta) 
+	q2= 0.
+	q3= 0.5*amp*(1.+np.cos(inc)**2)*np.sin(beta)**2
+	q4= 0.
+	Q = q0 + q1*np.cos(lda) + q2*np.sin(lda) + q3*np.cos(2.*lda) +  q4*np.sin(2.*lda)
 
-	E = np.sin(2.*inc)*np.cos(thetaIS)
-	F = 2.*np.sin(inc)*np.sin(thetaIS)
-	J = np.sin(2.*inc)*np.sin(thetaIS)
-	K = 2.*np.sin(inc)*np.cos(thetaIS)
-	L = (1.+np.cos(inc)**2)*np.cos(thetaIS)
-	M = 2.*np.cos(inc)*np.sin(thetaIS)
-	N = (1.+np.cos(inc)**2)*np.sin(thetaIS)
-	R = 2.*np.cos(inc)*np.cos(thetaIS)
+	u0= 0. #+ UIS #QIS*np.sin(thetaIS) + UIS*np.cos(thetaIS) 
+	u1= 0.
+	u2= -amp*np.sin(inc)*np.sin(2.*beta)
+	u3= 0.
+	u4= amp*np.cos(inc)*np.sin(beta)**2
+	U = u0 + u1*np.cos(lda) + u2*np.sin(lda) + u3*np.cos(2.*lda) +  u4*np.sin(2.*lda)
 
-	q0 = V*np.sin(inc)**2*(3.*np.cos(beta)**2 - 1.)*np.cos(thetaIS) + 3.*X*np.sin(inc)**2*np.sin(2.*beta)*np.cos(thetaIS) + 3.*Y*np.sin(inc)**2*np.sin(2.*beta)*np.cos(thetaIS) + QIS
-	q1 = 2.*W*E*np.cos(beta) - 2.*Z*E*np.sin(beta) + V*F*np.sin(2.*beta) - 2.*X*F*np.cos(2.*beta) - Y*F*np.sin(2.*beta)
-	q2 = V*E*np.sin(2.*beta) - 2.*X*E*np.cos(2.*beta) - Y*E*np.sin(2.*beta) - 2.*W*F*np.cos(beta) - 2.*Z*F*np.sin(beta)
-	q3 = -V*L*np.sin(beta)**2 + X*L*np.sin(2.*beta) - Y*L*(1.+np.cos(beta)**2) + 2.*W*M*np.sin(beta) - 2.*Z*M*np.cos(beta)
-	q4 = 2.*W*L*np.sin(beta) + 2.*Z*L*np.cos(beta) + V*M*np.sin(beta)**2 - X*M*np.sin(2.*beta) + Y*M*(1+np.cos(beta)**2)
-	Q = q0 + q1*np.cos(lda) + q2*np.sin(lda) + q3*np.cos(2.*lda) + q4*np.sin(2.*lda) 
+	q = Q*np.cos(thetaIS) - U*np.sin(thetaIS) + QIS
+	u = Q*np.sin(thetaIS) + U*np.cos(thetaIS) + UIS 
+	return [q,u]
 
-	u0 = V*np.sin(inc)**2*(3.*np.cos(beta)**2 - 1.)*np.sin(thetaIS) + 3.*X*np.sin(inc)**2*np.sin(2.*beta)*np.sin(thetaIS) + 3.*Y*np.sin(inc)**2*np.sin(2.*beta)*np.sin(thetaIS) + UIS
-	u1 = 2.*W*J*np.cos(beta) - 2.*Z*J*np.sin(beta) - V*K*np.sin(2.*beta) + 2.*X*K*np.cos(2.*beta) + Y*K*np.sin(2.*beta)
-	u2 = V*J*np.sin(2.*beta) - 2.*X*J*np.cos(2.*beta) - Y*J*np.sin(2.*beta) + 2.*W*K*np.cos(beta) + 2.*Z*K*np.sin(beta)
-	u3 = -V*N*np.sin(beta)**2 + X*N*np.sin(2.*beta) - Y*N*(1.+np.cos(beta)**2) - 2.*W*R*np.sin(beta) + 2.*Z*R*np.cos(beta)
-	u4 = 2.*W*N*np.sin(beta) + 2.*Z*N*np.cos(beta) - V*R*np.sin(beta)**2 + X*R*np.sin(2.*beta) - Y*R*(1+np.cos(beta)**2)
-	U = u0 + u1*np.cos(lda) + u2*np.sin(lda) + u3*np.cos(2.*lda) + u4*np.sin(2.*lda) 
 
-	return [Q,U]
+def qu_(phi,amp,taugamma1,taugamma2,taugamma3,taugamma4,inc,beta,thetaIS,QIS,UIS):
+	inc = np.radians(inc)
+	beta = np.radians(beta)
+	lda = phi*2.*np.pi 
+
+	q0= 0.5*amp*np.sin(inc)**2*(3.*np.cos(beta)**2-1.) - 3./2.*taugamma2*np.sin(inc)**2*np.sin(2.*beta)**2 + 3./2.*taugamma3*np.sin(inc)**2*np.sin(beta)**2#+ QIS #QIS*np.cos(thetaIS) - UIS*np.sin(thetaIS) +
+	q1=-0.5*amp*np.sin(2.*inc)*np.sin(2.*beta) - taugamma2*np.sin(2.*beta)*np.sin(2.*inc) + 0.5*taugamma3*np.sin(2.*beta)*np.sin(2.*inc)
+	q2= -taugamma1*np.cos(beta)*np.sin(2.*inc) - taugamma4*np.sin(beta)*np.sin(2.*inc)
+	q3= 0.5*amp*(1.+np.cos(inc)**2)*np.sin(beta)**2 + 0.5*taugamma2*np.sin(2.*beta)*(1.+np.cos(inc)**2) + 0.5*taugamma3*(1.+np.cos(inc)**2)*(1.+np.cos(beta)**2)
+	q4= taugamma1*np.sin(beta)*(1.+np.cos(inc)**2) - taugamma4*np.cos(beta)*(1.+np.cos(inc)**2)
+	Q = q0 + q1*np.cos(lda) + q2*np.sin(lda) + q3*np.cos(2.*lda) +  q4*np.sin(2.*lda)
+
+	u0= 0. #+ UIS #QIS*np.sin(thetaIS) + UIS*np.cos(thetaIS) 
+	u1= 2.*taugamma1*np.cos(beta)*np.sin(inc)  + 2.*taugamma4*np.sin(beta)*np.sin(inc)
+	u2= -amp*np.sin(inc)*np.sin(2.*beta) - 2.*taugamma2*np.sin(inc)*np.cos(2.*beta) + taugamma3*np.sin(2.*beta)*np.sin(inc)
+	u3= -2.*taugamma1*np.sin(beta)*np.cos(inc) + 2.*taugamma4*np.cos(beta)*np.cos(inc)
+	u4= amp*np.cos(inc)*np.sin(beta)**2 + taugamma2*np.sin(2.*beta)*np.cos(inc) + taugamma3*(1.+np.cos(beta)**2)*np.cos(inc)
+	U = u0 + u1*np.cos(lda) + u2*np.sin(lda) + u3*np.cos(2.*lda) +  u4*np.sin(2.*lda)
+
+	q = Q*np.cos(thetaIS) - U*np.sin(thetaIS) + QIS
+	u = Q*np.sin(thetaIS) + U*np.cos(thetaIS) + UIS 
+	return [q,u]
+
+
+
